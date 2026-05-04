@@ -1,0 +1,189 @@
+--------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  G:\My Drive\Advanced Econometrics for Public Policy and Global Affairs\Ad
+> vanced Econometrics for Public Policy and Global Affairs Project Excercises\final_pr
+> oject_exercises.log
+  log type:  text
+ opened on:   4 May 2026, 19:31:51
+
+. 
+. * --- Install packages (run once, then comment out) ---
+. /*
+> ssc install reghdfe, replace
+> ssc install ftools, replace
+> ssc install csdid, replace
+> ssc install drdid, replace
+> ssc install coefplot, replace
+> ssc install eventstudyinteract, replace
+> ssc install avar, replace all
+> ssc install did_imputation, replace
+> ssc install event_plot, replace
+> ssc install did2s, replace
+> */
+. 
+. eststo clear
+
+. 
+. *** ================================================================
+. *** Data Pipeline
+. *** ================================================================
+. 
+. foreach year in 1970 1980 1990 2000 2010 {
+  2.         
+.     * 1. Load in IPUMS data 
+.     use "$path_data/raw/ipums_usa_`year'.dta", clear
+  3.                 
+.     * 2. Restrict sample 
+.     drop if inlist(STATEFIP, 2, 15) // drop AK and HI
+  4.     drop if inlist(GQ, 0, 3, 4)     // drop group quarters (GQ 0 is often "not in
+>  universe")
+  5.     drop if AGE < 16                // age restriction
+  6. 
+.     * 3. Set geography and allocation factors by decade [cite: 108, 109]
+.     if `year' == 1970 {
+  7.         gen cty_grp70 = CNTYGP97
+  8.         local xkey  "cty_grp70" // name in the xwalk file
+  9.         
+.         * FIX 1: Ensure you are using the GEOGRAPHY crosswalk, not an OCCUPATION cro
+> sswalk
+.         local xwalk "cw_ctygrp1970_czone_corr.dta" 
+ 10.         
+.         local afac  "afact"
+ 11.     }
+ 12.     else if `year' == 1980 {
+ 13.         gen ctygrp1980 = 1000*STATEFIP + CNTYGP98
+ 14.         local xkey  "ctygrp1980" // name in the xwalk file
+ 15.         local xwalk "cw_ctygrp1980_czone_corr.dta"
+ 16.         local afac  "afactor"
+ 17.     }
+ 18.     else if `year' == 1990 {
+ 19.         gen puma1990 = 10000*STATEFIP + PUMA
+ 20.         local xkey  "puma1990"
+ 21.         local xwalk "cw_puma1990_czone.dta"
+ 22.         local afac  "afactor"
+ 23.     }
+ 24.         else {
+ 25.         gen puma2000 = 10000*STATEFIP + PUMA
+ 26.         local xkey  "puma2000"
+ 27.         local xwalk "cw_puma2000_czone.dta"
+ 28.         local afac  "afactor"
+ 29.     }
+ 30.         
+.     * 4. Convert to commuting zones [cite: 97, 98]
+.     * Use backticks and single quotes for locals. Ensure path matches your globals.
+.     joinby `xkey' using "$path_data/xwalks/`xwalk'"
+ 31.     gen aperwt = `afac' * PERWT
+ 32.         
+.     * 5. Classify by origin [cite: 99, 100]
+.     gen bpld = BPLD
+ 33.         merge m:1 bpld using "$path_data/raw/cw_bpld_kmp.dta", keep(3) nogenerate
+ 34.     drop if kmp_ctry == 82 // Drop 'other' origins
+ 35.         
+.     * 6. Construct wages (Midpoints required per instructions) 
+.     * Recode weeks
+.     if `year' == 1970 | `year' == 2010 {
+ 36.         recode WKSWORK2 (1=7) (2=20) (3=33) (4=43.5) (5=48.5) (6=51), gen(weeks)
+ 37.     }
+ 38.     else {
+ 39.         gen weeks = WKSWORK1 // Use the continuous variable you found
+ 40.     }
+ 41.     * Recode hours (1970 is intervalled, others are continuous) [cite: 108]
+.     if `year' == 1970 {
+ 42.         recode HRSWORK2 (1=7.5) (2=22) (3=32) (4=37) (5=40) (6=44.5) (7=54) (8=60
+> ), gen(hours)
+ 43.     }
+ 44.     else {
+ 45.         gen hours = UHRSWORK
+ 46.     }
+ 47.     
+.     gen hourly_wage = INCWAGE / (hours * weeks)
+ 48.     drop if hourly_wage <= 0 | hourly_wage == .
+ 49.         
+.     * 7. Collapse to CZ x Origin [cite: 103, 104]
+.     * (rawsum) for population to avoid weight multiplication issues [cite: 104, 105]
+.     collapse (rawsum) pop=aperwt (mean) wage=hourly_wage [pw=aperwt], by(czone kmp_c
+> try YEAR)
+ 50.         
+.     * 8. Save data
+.     save "$path_data/clean/cz_o_`year'.dta", replace
+ 51. }
+(10,576 observations deleted)
+(57,621 observations deleted)
+(618,402 observations deleted)
+(variable bpld was float, now double to accommodate using data's values)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                         3,313,403  
+    -----------------------------------------
+(5,647 observations deleted)
+(2,132,565 differences between WKSWORK2 and weeks)
+(1,736,522 differences between HRSWORK2 and hours)
+(1,618,922 missing values generated)
+(1,801,126 observations deleted)
+file ./data/clean/cz_o_1970.dta saved
+(68,772 observations deleted)
+(284,122 observations deleted)
+(2,775,740 observations deleted)
+(variable bpld was float, now double to accommodate using data's values)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                        12,722,683  
+    -----------------------------------------
+(46,663 observations deleted)
+(4,224,641 missing values generated)
+(4,883,514 observations deleted)
+file ./data/clean/cz_o_1980.dta saved
+(84,894 observations deleted)
+(258,324 observations deleted)
+(2,894,422 observations deleted)
+(variable bpld was float, now double to accommodate using data's values)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                        14,554,763  
+    -----------------------------------------
+(35,606 observations deleted)
+(4,514,752 missing values generated)
+(5,333,985 observations deleted)
+file ./data/clean/cz_o_1990.dta saved
+(92,872 observations deleted)
+(386,472 observations deleted)
+(3,213,547 observations deleted)
+(variable bpld was float, now double to accommodate using data's values)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                        15,693,557  
+    -----------------------------------------
+(0 observations deleted)
+(4,917,911 missing values generated)
+(5,695,016 observations deleted)
+file ./data/clean/cz_o_2000.dta saved
+(20,513 observations deleted)
+(79,206 observations deleted)
+(602,917 observations deleted)
+(variable bpld was float, now double to accommodate using data's values)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                         3,462,365  
+    -----------------------------------------
+(321 observations deleted)
+(2,212,484 differences between WKSWORK2 and weeks)
+(1,249,560 missing values generated)
+(1,410,843 observations deleted)
+file ./data/clean/cz_o_2010.dta saved
+
+. 
+. 
+. 
+end of do-file
+
+. exit, clear
