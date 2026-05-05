@@ -19,6 +19,8 @@ The analysis utilizes five decades of US Census data (1970–2010) sourced from 
 - **Variable Construction:** Estimates hourly wages by dividing annual earnings by weeks worked and hours per week, adjusted for inflation.
 - **Aggregation:** Data is collapsed to the CZ-by-origin level for each decade (1970, 1980, 1990, 2000, 2010).
 
+**Note:** The raw data files are not in this repository since they are too large for GitHub to store.
+
 ## Key Findings
 The results demonstrate a significant divergence between OLS and IV estimates, highlighting the importance of the instrumental variable approach:
 
